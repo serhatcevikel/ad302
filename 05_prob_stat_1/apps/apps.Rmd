@@ -1,0 +1,170 @@
+---
+title: "Probability Applications"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+
+```{r global, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(shiny)
+library(shinyWidgets)
+library(bslib)
+library(plotly)
+```
+
+Column {.tabset}
+-------------------------------------
+  
+### Sampling Distribution
+  
+```{r}
+
+set.seed(5)
+dicesimul <- matrix(sample(6, 2e4, replace = T), ncol = 2)
+dicesimulsum <- rowSums(dicesimul)
+
+ui <- page_sidebar(
+  title = "Sampling distribution",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "nx",
+      label = "Sample size:",
+      min = 2,
+      max = 100,
+      value = 2
+    ),
+    sliderInput(
+      inputId = "bins",
+      label = "Bins:",
+      min = 5,
+      max = 50,
+      step = 5,
+      value = 20
+    ),
+    sliderTextInput(
+      inputId = "nsamp",
+      label = "Number of samples:",
+      choices = c("1e2", "1e3", "1e4"),
+      selected = "1e3"
+    )
+  ),
+  plotlyOutput(outputId = "sampdist")
+)
+
+server <- function(input, output) {
+  
+  output$sampdist <- renderPlotly({  
+    samps <- rowMeans(t(replicate(as.numeric(input$nsamp), sample(dicesimulsum, input$nx))))
+    dicesim <- data.table(value = samps)
+    p <- dicesim %>%
+        ggplot(aes(y = value)) +
+        geom_histogram(breaks = seq(2, 12, length.out = input$bins + 1)) +
+        coord_flip()
+    ggplotly(p)
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+
+```   
+
+### Binomial Shapes
+
+```{r}
+
+binnorm <- function(nx, bias)
+{
+    dbin <- dbinom(0:nx, nx, bias)
+    meanbin <- nx * bias
+    varbin <- nx * bias * (1 - bias)
+    sdbin <- sqrt(varbin)
+    dnor <- dnorm(0:nx, meanbin, sdbin)
+    plot(dbin, type = "l", col = "blue", ylim = c(min(c(dbin, dnor)), max(c(dbin, dnor))))
+    lines(dnor, col = "red")
+}
+
+ui <- page_sidebar(
+  title = "Binomial Shapes",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "nx",
+      label = "Number of tosses:",
+      min = 2,
+      max = 100,
+      value = 2
+    ),
+    sliderInput(
+      inputId = "bias",
+      label = "Coin Bias:",
+      min = 0.1,
+      max = 0.9,
+      step = 0.1,
+      value = 0.5
+    )
+  ),
+  plotOutput(outputId = "binnormp")
+)
+
+server <- function(input, output) {
+  
+  output$binnormp <- renderPlot({    
+        binnorm(input$nx, input$bias)
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+### Binomial to Poisson
+
+```{r}
+
+ui <- page_sidebar(
+  title = "Binomial to Poisson",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "lambda",
+      label = "Expected rate:",
+      min = 1,
+      max = 10,
+      value = 4
+    ),
+    sliderTextInput(
+        inputId = "ns",
+        label = "Number of trials:",
+        choices = c(10, 20, 50, 100, 500, 1000, 1e4),
+        selected = 10
+    ),
+    sliderInput(
+        inputId = "maxk",
+        label = "Values up to:",
+        min = 5,
+        max = 40,
+        value = 10,
+        step = 5
+        )
+    ),
+  plotOutput(outputId = "binpoisp")
+)
+
+server <- function(input, output) {
+  
+  output$binpoisp <- renderPlot({    
+        lambda <- input$lambda
+        ns <- as.numeric(input$ns)
+        px <- lambda / ns
+        maxk <- input$maxk
+        dbin <- dbinom(0:maxk, ns, px)
+        dpoi <- dpois(0:maxk, lambda)
+        plot(dbin, type = "l", col = "blue", ylim = c(0, 0.5))
+        lines(dpoi, col = "red")     
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```

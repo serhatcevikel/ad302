@@ -1,0 +1,287 @@
+---
+title: "Probability Applications"
+output: flexdashboard::flex_dashboard
+runtime: shiny
+---
+
+
+```{r global, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(shiny)
+library(shinyWidgets)
+library(bslib)
+library(plotly)
+```
+
+Column {.tabset}
+-------------------------------------
+  
+### Beta Conjugate and Binomial Likelihood
+  
+```{r}
+
+pvals <- seq(0, 1, 0.0001)
+
+ui <- page_sidebar(
+  title = "Beta Conjugate and Binomial Likelihood",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "a1",
+      label = "Prior heads:",
+      min = 0,
+      max = 10,
+      value = 1
+    ),
+    sliderInput(
+      inputId = "b1",
+      label = "Prior tails:",
+      min = 0,
+      max = 10,
+      value = 3
+    ),
+    sliderInput(
+      inputId = "a2",
+      label = "New heads:",
+      min = 0,
+      max = 10,
+      value = 4
+    ),
+    sliderInput(
+      inputId = "b2",
+      label = "New tails:",
+      min = 0,
+      max = 10,
+      value = 2
+    )
+    ),
+  plotlyOutput(outputId = "betabin")
+)
+
+server <- function(input, output) {
+  
+  output$betabin <- renderPlotly({
+        a1 <- input$a1
+        a2 <- input$a2
+        b1 <- input$b1
+        b2 <- input$b2
+        dprior <- data.table(value = dbeta(pvals, a1 + 1, b1 + 1), p = pvals, component = "prior")
+        dlhood <- data.table(value = prop.table(dbinom(a2, a2 + b2, pvals)) * length(pvals), p = pvals, component = "likelihood")
+        dposterior <- data.table(value = dbeta(pvals, a1 + 1 + a2, b1 + 1 + b2), p = pvals, component = "posterior")
+
+        dataall <- rbind(dprior, dlhood, dposterior)
+
+        p <- ggplot(dataall, aes(x = p, y = value, color = component)) +
+      geom_line()
+        ggplotly(p)     
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```   
+
+### Higher Moments of Beta Distribution
+
+```{r}
+
+pvals <- seq(0, 1, 0.001)
+
+ui <- fluidPage(
+    titlePanel("Higher Moments of Beta Distribution"),  
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(
+              inputId = "alpha",
+              label = "A parameter:",
+              min = 1,
+              max = 100,
+              value = 2
+            ),
+            sliderInput(
+              inputId = "beta",
+              label = "B parameter:",
+              min = 1,
+              max = 100,
+              value = 20
+            )
+    ),
+        mainPanel(
+            plotOutput(outputId = "beta"),
+            column(3,
+                textOutput("sdt"),
+                plotOutput("sd")),
+            column(4,
+                textOutput("skewt"),
+                plotOutput("skew")),
+            column(4,
+                textOutput("kurtt"),
+                plotOutput("kurt"))
+        )
+    )
+)
+
+server <- function(input, output) {
+        a <- reactive(input$alpha)
+        b <- reactive(input$beta)
+        skewx <- reactive((2*(b()-a())*sqrt(a()+b()+1)) / ((a()+b()+2)*sqrt(a()*b())))
+        kurtx <- reactive(6*((a() - b())^2 * (a() + b() + 1) - a()*b() * (a() + b() + 2)) / (a() * b() * (a() + b() + 2) * (a() + b() + 3)))
+        sdx <- reactive(sqrt(a() * b() / ((a() + b())^2 * (a() + b() + 1)) ))
+        meanx <- reactive(a() / (a() + b()))
+    
+        output$beta <- renderPlot({ plot(pvals, dbeta(pvals, a(), b()), type = "l")
+                                   abline(v = meanx(), col = "red")
+                                   title(paste("Mean :", round(meanx(), 2)), line = -2) })
+        output$sdt <- renderText({ paste("SD: ", round(sdx(), 2), sep = "") })
+        output$sd <- renderPlot({ barplot(sdx(), horiz = T, width = 1, space = 0, xlim = c(0, 0.5), ylim = c(0, 1)) }, height = 150, width = 200)
+        
+        output$skewt <- renderText({ paste(ifelse(skewx() > 0, "Right Skewed: ", ifelse(skewx() < 0, "Left Skewed: ", "Centered: ")), round(skewx(),2), sep = "") })
+        output$kurtt <- renderText({ paste(ifelse(round(kurtx(), 2) > 0, "Leptokurtic: ", ifelse(round(kurtx(),2) < 0, "Platykurtic: ", "Mesokurtic: ")), round(kurtx(), 2), sep ="") })
+        output$skew <- renderPlot({ barplot(skewx(), horiz = T, width = 1, space = 0, xlim = c(-2, 2), ylim = c(0, 1)) }, height = 150, width = 300)
+        output$kurt <- renderPlot({ barplot(kurtx(), horiz = T, width = 1, space = 0, xlim = c(-2, 6), ylim = c(0, 1)) }, height = 150, width = 300)
+    
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+### Binomial to Normal Distribution
+
+```{r}
+
+binnorm <- function(nx, bias)
+{
+    dbin <- dbinom(0:nx, nx, bias)
+    meanbin <- nx * bias
+    varbin <- nx * bias * (1 - bias)
+    sdbin <- sqrt(varbin)
+    dnor <- dnorm(0:nx, meanbin, sdbin)
+    plot(dbin, type = "l", col = "blue", ylim = c(min(c(dbin, dnor)), max(c(dbin, dnor))))
+    lines(dnor, col = "red")
+}
+
+ui <- page_sidebar(
+  title = "Binomial to Normal",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "nx",
+      label = "Number of tosses:",
+      min = 2,
+      max = 100,
+      value = 2
+    ),
+    sliderInput(
+      inputId = "bias",
+      label = "Coin Bias:",
+      min = 0.1,
+      max = 0.9,
+      step = 0.1,
+      value = 0.5
+    )
+  ),
+  plotOutput(outputId = "binnormp")
+)
+
+server <- function(input, output) {
+  
+  output$binnormp <- renderPlot({    
+        binnorm(input$nx, input$bias)
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+### Poisson to Normal Distribution
+
+```{r}
+
+poisnorm <- function(nx, rate)
+{
+    dp <- dpois(0:nx, rate)
+    meanpois <- rate
+    varpois <- rate
+    sdpois <- sqrt(varpois)
+    dnor <- dnorm(0:nx, meanpois, sdpois)
+    plot(0:nx, dp, type = "l", col = "blue", ylim = c(min(c(dp, dnor)), max(c(dp, dnor))))
+    lines(0:nx, dnor, col = "red")
+}
+
+ui <- page_sidebar(
+  title = "Poisson to Normal",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "nx",
+      label = "Max count:",
+      min = 5,
+      max = 100,
+      value = 10
+    ),
+    sliderInput(
+      inputId = "rate",
+      label = "Rate:",
+      min = 1,
+      max = 50,
+      step = 1,
+      value = 2
+    )
+  ),
+  plotOutput(outputId = "poisnormp")
+)
+
+server <- function(input, output) {
+  
+  output$poisnormp <- renderPlot({    
+        poisnorm(input$nx, input$rate)
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+### CLT with Beta Distribution
+
+```{r}
+
+library(estimators)
+library(data.table)
+sampx <- rbeta(1e5, 0.5, 0.5)
+distx <- Beta(0.5, 0.5)
+mdb <- mean(distx)
+sdb <- sd(distx)
+
+ui <- page_sidebar(
+  title = "Beta to Normal",
+  sidebar = sidebar(
+    sliderInput(
+      inputId = "nx",
+      label = "Sample Size:",
+      min = 1,
+      max = 200,
+      value = 1
+    )
+  ),
+  plotOutput(outputId = "betanormp")
+)
+
+server <- function(input, output) {
+  output$betanormp <- renderPlot({    
+    nx <- reactive(input$nx)
+    samp2 <- t(replicate(1e4, sample(sampx, nx())))
+    if (nx() == 1) samp2 <- t(samp2)
+    simx <- rowMeans(samp2)
+    densx <- density(simx)[c("x", "y")]
+    setDT(densx)
+    maxx <- densx[, max(x)]
+    densn <- dnorm(densx$x, mdb, sdb/sqrt(nx()))
+    plot(densx, type = "l", col = "blue", ylim = c(min(c(densx$y, densn)), max(c(densx$y, densn))))
+    lines(densx$x, densn, col = "red")
+  }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```
