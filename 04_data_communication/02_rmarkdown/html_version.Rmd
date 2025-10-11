@@ -67,15 +67,33 @@ In Rmarkdown codes are inserted by chunks or inline, there are no cells as in ju
 
 # ggplot2
 
-Let's wrangle flights slightly:
+Let's first create a copy of the flights table and make it a data.table. Add a date column. And create a summarized version of the table so that for each date and origin we have average departure delay, arrival delay and distance.
+
+And later, let's add some additional features:
+
+- Weekdays with three letter labels using wday function from lubridate package that deals with datetime objects
+- Months as values from 1 to 12 using month function from lubridate package
+- 3-month quarter such that 1:3 to Q1, 4:6 to Q2, 7:9 to Q3, 10:12 to Q4
 
 ```{r echo = T}
 flights2 <- copy(flights)
 setDT(flights2)
-flights2[, date1 := as.Date(time_hour)]
-flights2 <- flights2 %>% mutate_at(vars(ends_with("time")), function(x) hm(sprintf("%s:%s", x %/% 100, x %% 100)))
-flights2[, speed := distance / period_to_seconds(air_time) * 3600]
+flights2[, date1 := as.Date(time_hour)] # convert time hour to date
+
+flights2 <- flights2 %>%
+group_by(date1, origin) %>%
+summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T)
+
+flights2 <- flights2 %>%
+mutate(weekday = lubridate::wday(date1, label = T)) %>% # we create the weekday
+mutate(mnt = month(date1)) %>% # we extract the months as 1 to 12
+# we convert the months to quarters: 1:3 to Q1, 4:6 to Q2, 7:9 to Q3, 10:12 to Q4s
+mutate(quartx = paste("Q", (mnt - 1) %/% 3 + 1, sep = ""))
 ```
+
+## Line chart
+
+### 2 dimensions: x and y
 
 Now first let's create a line chart across dates, where y axis shows the average departure delay for each day
 
@@ -83,73 +101,69 @@ The dimensions are passed by `aes()` function:
 
 ```{r}
 flights2 %>%
-group_by(date1) %>%
-summarise_at("dep_delay", mean, na.rm = T) %>%
 ggplot(aes(x = date1, y = dep_delay)) +
 geom_line()
 ```
+
+### 3 dimensions: x, y, and colored lines
 
 Now let's differentiate the lines by color according to the origin airport, so we add a third dimension:
 
 ```{r}
 flights2 %>%
-group_by(date1, origin) %>%
-summarise_at("dep_delay", mean, na.rm = T) %>%
 ggplot(aes(x = date1, y = dep_delay, color = origin)) +
 geom_line()
 ```
+
+## Scatter plot
+
+### 2 dimensions: x and y
 
 Let's try a scatter plot across average daily departure and array delays:
 
 ```{r}
 flights2 %>%
-group_by(date1) %>%
-summarise_at(c("dep_delay", "arr_delay"), mean, na.rm = T) %>%
 ggplot(aes(x = dep_delay, y = arr_delay)) +
 geom_point()
 ```
+
+### 3 dimensions: x, y and bubbles
 
 Let's add a third dimension by changing the size of points according to the flight distance, so we have a bubble chart:
 
 ```{r}
 flights2 %>%
-group_by(date1) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance)) +
 geom_point(alpha = 0.5)
 ```
+
+### 4 dimensions: x, y, bubbles and color
 
 And let's add a fourth dimension by changing the color of points according to the origin airport:
 
 ```{r}
 flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance, color = origin)) +
 geom_point(alpha = 0.5)
 ```
+
+### 5 dimensions: x, y, bubbles, color and facets
 
 And we can create multiple charts for each weekday using `facet_wrap()` function, now we have five dimensions:
 
 ```{r}
 flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
-mutate(weekday = lubridate::wday(date1, label = T)) %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance, color = origin)) +
 geom_point(alpha = 0.5) +
 facet_wrap(. ~ weekday)
 ```
 
+### 6 dimensions: x, y, bubbles, color, and 2D facets
+
 And let's create a separate chart for each combinations of a weekday and a quarter (three months) using `facet_grid()` function, we have six dimensions!:
 
 ```{r}
 flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
-mutate(weekday = lubridate::wday(date1, label = T)) %>%
-mutate(mnt = month(date1)) %>%
-mutate(quartx = paste("Q", (mnt - 1) %/% 3 + 1), sep = "") %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance, color = origin)) +
 geom_point(alpha = 0.5) +
 facet_grid(weekday ~ quartx)
@@ -166,8 +180,6 @@ Now let's do something fancy very easily:
 
 ```{r}
 pl1 <- flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance, color = origin)) +
 geom_point(alpha = 0.5)
 
@@ -180,9 +192,6 @@ Faceted charts can also be converted to plotly:
 
 ```{r}
 pl2 <- flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
-mutate(weekday = lubridate::wday(date1, label = T)) %>%
 ggplot(aes(x = dep_delay, y = arr_delay, size = distance, color = origin)) +
 geom_point(alpha = 0.5) +
 facet_wrap(. ~ weekday)
@@ -190,13 +199,18 @@ facet_wrap(. ~ weekday)
 ggplotly(pl2)
 ```
 
+# Rendering into html or other formats
+
+So we can render any interactive plots into an html document format (or other format according to the yaml header) using the Knit button or Ctrl+Shift+K shortcut.
+
+# APPENDIX: Optional methods
+
+## Animated plotly charts
+
 We can also create animated charts using plotly's own syntax and passing a feature for the `frame` dimensions:
 
 ```{r}
 flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
-mutate(mnt = month(date1)) %>%
 plot_ly(x = ~dep_delay, y = ~arr_delay) %>%
 add_trace(marker = list(color = origin), frame = ~mnt, type = "scatter") %>%
 animation_opts(
@@ -204,28 +218,20 @@ animation_opts(
 )
 ```
 
+## Interactive rotatable 3D charts
 
-We can even create 3d interactive rotatable charts easily in plotly:
+We can even create interactive rotatable 3D charts easily in plotly:
 
 ```{r}
-flights3 <- flights2 %>%
-group_by(date1, origin) %>%
-summarise_at(c("dep_delay", "arr_delay", "distance"), mean, na.rm = T) %>%
-mutate(mnt = month(date1))
-
 if (T)
 {    
     plot_ly() %>% 
-          add_trace(data = flights3,  x = flights3$dep_delay, y = flights3$arr_delay, z = flights3$distance, type="mesh3d") %>%
-            layout(autosize = F, width = 400, height = 400,
+          add_trace(data = flights2,  x = ~dep_delay, y = ~arr_delay, z = ~distance, type="mesh3d") %>%
+            layout(autosize = F, width = 800, height = 800,
                   scene = list(xaxis = list(title = "dep_delay"),
                   yaxis = list(title = "arr_delay"),
                   zaxis = list(title = "distance")))
 }
 ```
-
-# Conclusion
-
-So we can render any interactive plots in an html document format
 
 # References
