@@ -18,7 +18,7 @@ Column {.tabset}
 -------------------------------------
   
 ### Beta Conjugate and Binomial Likelihood
-  
+
 ```{r}
 
 pvals <- seq(0, 1, 0.0001)
@@ -79,7 +79,7 @@ server <- function(input, output) {
 
 shinyApp(ui = ui, server = server)
 
-```   
+```
 
 ### Higher Moments of Beta Dist.
 
@@ -296,7 +296,7 @@ library(BBmisc) # for standardization
 library(PearsonDS) # for flexible four parameter distbutions
 
 qvals <- seq(-5, 5, 0.1)
-distnames <- c("normal", "pearson")
+distnames <- c("pearson", "normal")
 densities2 <- list(normal = dnorm(qvals))
 
 ui <- fluidPage(
