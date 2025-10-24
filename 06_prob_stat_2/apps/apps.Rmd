@@ -81,7 +81,7 @@ shinyApp(ui = ui, server = server)
 
 ```   
 
-### Higher Moments of Beta Distribution
+### Higher Moments of Beta Dist.
 
 ```{r}
 
@@ -146,7 +146,7 @@ shinyApp(ui = ui, server = server)
 
 ```
 
-### Binomial to Normal Distribution
+### Binomial to Normal Dist.
 
 ```{r}
 
@@ -194,7 +194,7 @@ shinyApp(ui = ui, server = server)
 
 ```
 
-### Poisson to Normal Distribution
+### Poisson to Normal Dist.
 
 ```{r}
 
@@ -242,7 +242,7 @@ shinyApp(ui = ui, server = server)
 
 ```
 
-### CLT with Beta Distribution
+### CLT with Beta Dist.
 
 ```{r}
 
@@ -280,6 +280,81 @@ server <- function(input, output) {
     plot(densx, type = "l", col = "blue", ylim = c(min(c(densx$y, densn)), max(c(densx$y, densn))))
     lines(densx$x, densn, col = "red")
   }) 
+}
+
+shinyApp(ui = ui, server = server)
+
+```
+
+### Pearson Dist. and Higher Moments
+
+```{r}
+library(data.table)
+library(tidyverse)
+library(plotly)
+library(BBmisc) # for standardization
+library(PearsonDS) # for flexible four parameter distbutions
+
+qvals <- seq(-5, 5, 0.1)
+distnames <- c("normal", "pearson")
+densities2 <- list(normal = dnorm(qvals))
+
+ui <- fluidPage(
+    titlePanel("Pearson Distribution and Higher Moments"),  
+    sidebarLayout(
+        sidebarPanel(
+            sliderInput(
+              inputId = "kurtosis",
+              label = "Kurtosis:",
+              min = 2.2,
+              max = 6,
+              step = 0.1,
+              value = 3
+            ),
+            sliderInput(
+              inputId = "skewness",
+              label = "Skewness:",
+              min = -1,
+              max = 1,
+              step = 0.1,
+              value = 0
+            )
+    ),
+        mainPanel(
+            plotlyOutput(outputId = "density")
+        )
+    )
+)
+
+server <- function(input, output) {
+        densityr <- reactive(
+          {
+        
+            densities1 <- list(dpearson(qvals, moments = c(0, 1, input$skewness, input$kurtosis)))
+            densities <- c(densities1, densities2)
+            densities_dt <- mapply(function(x, y) data.table(qval = qvals, dens = x, distname = y),
+                           densities, distnames, SIMPLIFY = F) %>% rbindlist
+            densities_dt <- densities_dt[dens > 0]
+            densities_dt[]
+          
+          }
+        )
+        
+        output$density <- renderPlotly({
+          
+          densep <- densityr() %>%
+            highlight_key(~distname) %>%
+            ggplot(aes(x = qval, y = dens, col = distname)) +
+            geom_line()
+
+          ggplotly(densep) %>%
+            highlight(
+              on = "plotly_click",
+              off = "plotly_relayout",
+              opacityDim = .1
+            )
+        })
+        
 }
 
 shinyApp(ui = ui, server = server)
