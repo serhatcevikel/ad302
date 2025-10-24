@@ -309,6 +309,7 @@ ui <- fluidPage(
               min = 2.2,
               max = 6,
               step = 0.1,
+              animate = animationOptions(interval = 200),
               value = 3
             ),
             sliderInput(
@@ -317,6 +318,7 @@ ui <- fluidPage(
               min = -1,
               max = 1,
               step = 0.1,
+              animate = animationOptions(interval = 200),
               value = 0
             )
     ),
@@ -332,8 +334,8 @@ server <- function(input, output) {
         
             densities1 <- list(dpearson(qvals, moments = c(0, 1, input$skewness, input$kurtosis)))
             densities <- c(densities2, densities1)
-            densities_dt <- mapply(function(x, y) data.table(qval = qvals, dens = x, distname = y),
-                           densities, distnames, SIMPLIFY = F) %>% rbindlist
+            densities_dt <- mapply(function(x, y, z) data.table(qval = qvals, dens = x, distname = y, alphax = z),
+                           densities, distnames, c(0.5, 1), SIMPLIFY = F) %>% rbindlist
             densities_dt <- densities_dt[dens > 0]
             densities_dt[]
           
@@ -345,14 +347,19 @@ server <- function(input, output) {
           densep <- densityr() %>%
             highlight_key(~distname) %>%
             ggplot(aes(x = qval, y = dens, col = distname)) +
-            geom_line()
+            geom_line(aes(alpha = alphax)) +
+            ylim(0, 1) +
+            scale_alpha_identity()
 
           ggplotly(densep) %>%
             highlight(
               on = "plotly_click",
               off = "plotly_relayout",
               opacityDim = .1
-            )
+            ) %>%
+          layout(legend = list(orientation = "h",
+                     xanchor = "left",
+                     x = 0, y = -0.4), height = 600)
         })
         
 }
