@@ -296,7 +296,7 @@ library(BBmisc) # for standardization
 library(PearsonDS) # for flexible four parameter distbutions
 
 qvals <- seq(-5, 5, 0.1)
-distnames <- c("pearson", "normal")
+distnames <- c("normal", "pearson")
 densities2 <- list(normal = dnorm(qvals))
 
 ui <- fluidPage(
@@ -331,7 +331,7 @@ server <- function(input, output) {
           {
         
             densities1 <- list(dpearson(qvals, moments = c(0, 1, input$skewness, input$kurtosis)))
-            densities <- c(densities1, densities2)
+            densities <- c(densities2, densities1)
             densities_dt <- mapply(function(x, y) data.table(qval = qvals, dens = x, distname = y),
                            densities, distnames, SIMPLIFY = F) %>% rbindlist
             densities_dt <- densities_dt[dens > 0]
