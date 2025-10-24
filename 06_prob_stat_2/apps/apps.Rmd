@@ -358,8 +358,8 @@ server <- function(input, output) {
               opacityDim = .1
             ) %>%
           layout(legend = list(orientation = "h",
-                     xanchor = "left",
-                     x = 0, y = -0.4), height = 600)
+                     xanchor = "center",
+                     x = 0.5, y = -0.6, title = list(text=NULL)), height = 600)
         })
         
 }
