@@ -333,9 +333,11 @@ server <- function(input, output) {
           {
         
             densities1 <- list(dpearson(qvals, moments = c(0, 1, input$skewness, input$kurtosis)))
+            median1 <- qpearson(0.5, moments = c(0, 1, input$skewness, input$kurtosis))
             densities <- c(densities2, densities1)
-            densities_dt <- mapply(function(x, y, z) data.table(qval = qvals, dens = x, distname = y, alphax = z),
-                           densities, distnames, c(0.5, 1), SIMPLIFY = F) %>% rbindlist
+            densities_dt <- mapply(function(x, y, z, a) data.table(qval = qvals, dens = x,
+                                                                   distname = y, alphax = z, medianx = a),
+                           densities, distnames, c(0.5, 1), c(0, median1), SIMPLIFY = F) %>% rbindlist
             densities_dt <- densities_dt[dens > 0]
             densities_dt[]
           
@@ -348,6 +350,7 @@ server <- function(input, output) {
             highlight_key(~distname) %>%
             ggplot(aes(x = qval, y = dens, col = distname)) +
             geom_line(aes(alpha = alphax)) +
+            geom_vline(aes(xintercept = medianx, col = distname)) +
             ylim(0, 1) +
             scale_alpha_identity()
 
