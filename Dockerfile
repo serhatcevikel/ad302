@@ -1,4 +1,4 @@
-FROM serhatcevikel/ad302:stage03
+FROM serhatcevikel/ad302:stage03_2026
 
 COPY --chown=jovyan:jovyan . ${HOME}
 
